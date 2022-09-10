@@ -333,14 +333,14 @@ void loop() {
       // Note OFF event
       case midi::NoteOff:
         // Channel 1
-        if (MIDI.getChannel() == MIDI_CHANNEL_1) {
+        if (MIDI.getChannel() == MIDI_CHANNEL_1 && MIDI.getData1() == note_number_channel_1) {
           // Stop gate
           gate_1_value = false;
           gate_1_write();
         }
 
         // Channel 2
-        else if (MIDI.getChannel() == MIDI_CHANNEL_2) {
+        if (MIDI.getChannel() == MIDI_CHANNEL_2 && MIDI.getData1() == note_number_channel_2) {
           // Stop gate
           gate_2_value = false;
           gate_2_write();
