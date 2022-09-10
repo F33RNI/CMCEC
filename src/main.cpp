@@ -73,9 +73,9 @@ const float GAIN_2 PROGMEM = 1.83076190;
 #define MIDI_CHANNEL_2 2
 #define NOTE_COLOR_LOW 0
 #define NOTE_COLOR_HIGH 54613
-#define LED_NOTE_OFF_BRIGHTNESS 4
-#define LED_NOTE_ON_BRIGHTNESS 50
-#define LED_CLOCK_BRIGHTNESS 80
+#define LED_NOTE_OFF_BRIGHTNESS 40
+#define LED_NOTE_ON_BRIGHTNESS 80
+#define LED_CLOCK_BRIGHTNESS 110
 
 // DAC variables
 volatile uint8_t *dac_1_port_output, *dac_2_port_output, *dac_3_port_output;
@@ -155,12 +155,12 @@ void setup() {
   leds.begin();
 #ifdef CALIBRATION
   // Calibration mode - orange color
-  leds.setPixelColor(0, leds.ColorHSV(5000, 255, LED_NOTE_OFF_BRIGHTNESS));
-  leds.setPixelColor(1, leds.ColorHSV(5000, 255, LED_NOTE_OFF_BRIGHTNESS));
+  leds.setPixelColor(0, 5, 2, 0);
+  leds.setPixelColor(1, 5, 2, 0);
 #else
   // Default mode - white color
-  leds.setPixelColor(0, leds.ColorHSV(0, 0, LED_NOTE_OFF_BRIGHTNESS));
-  leds.setPixelColor(1, leds.ColorHSV(0, 0, LED_NOTE_OFF_BRIGHTNESS));
+  leds.setPixelColor(0, 5, 5, 5);
+  leds.setPixelColor(1, 5, 5, 5);
 #endif
 	leds.show();
 
@@ -435,14 +435,14 @@ void led_handler(boolean from_clock) {
 
   // Clock pulse -> max led brightness
   if (led_clock_timer != 0) {
-    leds.setPixelColor(0, leds.ColorHSV(note_1_color, 255, LED_CLOCK_BRIGHTNESS));
-    leds.setPixelColor(1, leds.ColorHSV(note_2_color, 255, LED_CLOCK_BRIGHTNESS));
+    leds.setPixelColor(0, leds.gamma32(leds.ColorHSV(note_1_color, 255, LED_CLOCK_BRIGHTNESS)));
+    leds.setPixelColor(1, leds.gamma32(leds.ColorHSV(note_2_color, 255, LED_CLOCK_BRIGHTNESS)));
   }
 
   // No clock pulse
   else {
-    leds.setPixelColor(0, leds.ColorHSV(note_1_color, 255, gate_1_value ? LED_NOTE_ON_BRIGHTNESS : LED_NOTE_OFF_BRIGHTNESS));
-    leds.setPixelColor(1, leds.ColorHSV(note_2_color, 255, gate_2_value ? LED_NOTE_ON_BRIGHTNESS : LED_NOTE_OFF_BRIGHTNESS));
+    leds.setPixelColor(0, leds.gamma32(leds.ColorHSV(note_1_color, 255, gate_1_value ? LED_NOTE_ON_BRIGHTNESS : LED_NOTE_OFF_BRIGHTNESS)));
+    leds.setPixelColor(1, leds.gamma32(leds.ColorHSV(note_2_color, 255, gate_2_value ? LED_NOTE_ON_BRIGHTNESS : LED_NOTE_OFF_BRIGHTNESS)));
   }
 
   // Update LEDs
