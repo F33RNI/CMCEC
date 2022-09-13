@@ -18,7 +18,6 @@
 
 ----------
 
-
 ### Schematic
 
 PDF-version available at the root of the repo
@@ -41,3 +40,15 @@ To make this project as cheap as possible I decided to use DIY R2R DAC based on 
         <img src="IMAGES/DAC_BACK.jpg" width="auto" height="300">
     </p>
 </div>
+
+----------
+
+### Calibration
+
+CMCEC features automatic voltage compensation by measuring it internally. In order to use this feature as well as setup 1V/octave you need to perform calibration
+
+1. Uncomment `//#define CALIBRATION 1` line and set it to the `#define CALIBRATION 0`
+2. Connect Arduino to PC or UART at 9600. Follow the instructions
+3. Uncomment `//#define CALIBRATION 1` line and set it to the `#define CALIBRATION 1`
+4. Connect Arduino to PC or UART at 9600. Follow the instructions. Use Excel file in the root of the repo to simplify gain calibration
+5. Comment `//#define CALIBRATION 1` line
