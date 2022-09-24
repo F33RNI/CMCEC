@@ -113,6 +113,7 @@ uint64_t vcc_read_timer;
 
 // Note variables
 uint8_t note_number_channel_1, note_number_channel_2;
+uint8_t midi_data_temp;
 
 // Gate variables
 boolean gate_1_value, gate_2_value;
@@ -150,6 +151,8 @@ Adafruit_NeoPixel leds = Adafruit_NeoPixel(2, PIN_WS_LED, NEO_GRB + NEO_KHZ800);
 MIDI_CREATE_DEFAULT_INSTANCE();
 
 // Voids
+void note_on_1(uint8_t note);
+void note_on_2(uint8_t note);
 void notes_write(void);
 void led_handler(boolean from_clock = false);
 void button_read(void);
@@ -365,95 +368,146 @@ void loop() {
     switch (MIDI.getType()) {
       // Note ON event
       case midi::NoteOn:
-        // Channel 1
-        if (MIDI.getChannel() == MIDI_CHANNEL_1) {
-          // Get note number
-          note_number_channel_1 = MIDI.getData1();
-          if (mode == MODE_MIRROR)
-            note_number_channel_2 = note_number_channel_1;
+        switch (mode) {
+        // Poly mode
+        case MODE_POLY:
+          if (MIDI.getChannel() == MIDI_CHANNEL_1 || MIDI.getChannel() == MIDI_CHANNEL_2) {
+            // Get note number
+            midi_data_temp = MIDI.getData1();
 
-          // Write note to DAC
-          notes_write();
+            // Both gates closed (2 notes left)
+            if (!gate_1_value && !gate_2_value) {
+              // Set both channels to the same note
+              note_number_channel_1 = midi_data_temp;
+              note_number_channel_2 = midi_data_temp;
 
-          // Start trig 1
-          digitalWrite(PIN_TRIG_1, HIGH);
-          trig_1_timer = millis();
+              // Start first channel
+              note_on_1(midi_data_temp);
+            }
 
-          // Start trig 2
-          if (mode == MODE_MIRROR) {
-            digitalWrite(PIN_TRIG_2, HIGH);
-            trig_2_timer = millis();
+            // Only gate 1 closed (1 note left)
+            else if (!gate_1_value && gate_2_value) {
+              note_on_1(midi_data_temp);
+            }
+
+            // Only gate 2 closed (1 note left)
+            else if (gate_1_value && !gate_2_value) {
+              note_on_2(midi_data_temp);
+            }
+
+            // All gates are opened (0 notes left)
+            else {
+              // Note on the left
+              if (midi_data_temp < note_number_channel_1 && midi_data_temp < note_number_channel_2) {
+                if (note_number_channel_1 < note_number_channel_2)
+                  note_on_1(midi_data_temp);
+                else
+                  note_on_2(midi_data_temp);
+              }
+
+              // Note on the right
+              else if (midi_data_temp > note_number_channel_1 && midi_data_temp > note_number_channel_2) {
+                if (note_number_channel_1 > note_number_channel_2)
+                  note_on_1(midi_data_temp);
+                else
+                  note_on_2(midi_data_temp);
+              }
+
+              // Note between
+              else {
+                // Closer to 1 -> turn on channel 1
+                if (abs((int16_t)midi_data_temp - (int16_t)note_number_channel_1) < abs((int16_t)midi_data_temp - (int16_t)note_number_channel_2))
+                  note_on_1(midi_data_temp);
+                else
+                  note_on_2(midi_data_temp);
+              }
+            }
           }
+        break;
 
-          // Start gate 1
-          gate_1_value = true;
-          gate_1_write();
+        // Mirror
+        case MODE_MIRROR:
+          if (MIDI.getChannel() == MIDI_CHANNEL_1 || MIDI.getChannel() == MIDI_CHANNEL_2) {
+            // Get note number
+            midi_data_temp = MIDI.getData1();
 
-          // Start gate 2
-          if (mode == MODE_MIRROR) {
-            gate_2_value = true;
-            gate_2_write();
+            // Start both channels
+            note_on_1(midi_data_temp);
+            note_on_2(midi_data_temp);
           }
+          break;
+        
+        // Separate channels
+        default:
+          // Channel 1
+          if (MIDI.getChannel() == MIDI_CHANNEL_1)
+            note_on_1(MIDI.getData1());
+
+          // Channel 2
+          else if (MIDI.getChannel() == MIDI_CHANNEL_2)
+            note_on_2(MIDI.getData1());
+          break;
         }
 
-        // Channel 2
-        else if (MIDI.getChannel() == MIDI_CHANNEL_2) {
-          // Get note number
-          note_number_channel_2 = MIDI.getData1();
-          if (mode == MODE_MIRROR)
-            note_number_channel_1 = note_number_channel_2;
-
-          // Write note to DAC
-          notes_write();
-
-          // Start trig 2
-          digitalWrite(PIN_TRIG_2, HIGH);
-          trig_2_timer = millis();
-
-          // Start trig 1
-          if (mode == MODE_MIRROR) {
-            digitalWrite(PIN_TRIG_1, HIGH);
-            trig_1_timer = millis();
-          }
-
-          // Start gate 2
-          gate_2_value = true;
-          gate_2_write();
-
-          // Start gate 1
-          if (mode == MODE_MIRROR) {
-            gate_1_value = true;
-            gate_1_write();
-          }
-        }
         break;
 
       // Note OFF event
       case midi::NoteOff:
-        // Channel 1
-        if (MIDI.getChannel() == MIDI_CHANNEL_1 && MIDI.getData1() == note_number_channel_1) {
-          // Stop gate 1
-          gate_1_value = false;
-          gate_1_write();
+        switch (mode) {
+        // Poly mode
+        case MODE_POLY:
+          if (MIDI.getChannel() == MIDI_CHANNEL_1 || MIDI.getChannel() == MIDI_CHANNEL_2) {
+            // Get note number
+            midi_data_temp = MIDI.getData1();
 
-          // Stop gate 2
-          if (mode == MODE_MIRROR) {
-            gate_2_value = false;
-            gate_2_write();
+            // Stop gate 1
+            if (midi_data_temp == note_number_channel_1) {
+              gate_1_value = false;
+              gate_1_write();
+            }
+            
+            // Stop gate 2
+            if (midi_data_temp == note_number_channel_2) {
+              gate_2_value = false;
+              gate_2_write();
+            }
           }
-        }
+        break;
 
-        // Channel 2
-        if (MIDI.getChannel() == MIDI_CHANNEL_2 && MIDI.getData1() == note_number_channel_2) {
-          // Stop gate 2
-          gate_2_value = false;
-          gate_2_write();
+        // Mirror
+        case MODE_MIRROR:
+          if (MIDI.getChannel() == MIDI_CHANNEL_1 || MIDI.getChannel() == MIDI_CHANNEL_2) {
+            // Get note number
+            midi_data_temp = MIDI.getData1();
+            if (midi_data_temp == note_number_channel_1 || midi_data_temp == note_number_channel_2) {
+              // Stop gates
+              gate_1_value = false;
+              gate_1_write();
+              gate_2_value = false;
+              gate_2_write();
+            }
+          }
+          break;
+        
+        // Separate channels
+        default:
+          // Get note number
+          midi_data_temp = MIDI.getData1();
 
-          // Stop gate 1
-          if (mode == MODE_MIRROR) {
+          // Channel 1
+          if (MIDI.getChannel() == MIDI_CHANNEL_1 && midi_data_temp == note_number_channel_1) {
+            // Stop gate 1
             gate_1_value = false;
             gate_1_write();
           }
+
+          // Channel 2
+          if (MIDI.getChannel() == MIDI_CHANNEL_2 && midi_data_temp == note_number_channel_2) {
+            // Stop gate 2
+            gate_2_value = false;
+            gate_2_write();
+          }
+          break;
         }
         break;
 
@@ -495,6 +549,46 @@ void loop() {
 
   // Update LED
   led_handler(false);
+}
+
+/**
+ * @brief Turns on note on physical channel 1
+ * 
+ */
+void note_on_1(uint8_t note) {
+  // Set note number
+  note_number_channel_1 = note;
+
+  // Write note to DAC
+  notes_write();
+
+  // Start trig 1
+  digitalWrite(PIN_TRIG_1, HIGH);
+  trig_1_timer = millis();
+
+  // Start gate 1
+  gate_1_value = true;
+  gate_1_write();
+}
+
+/**
+ * @brief Turns on note on physical channel 2
+ * 
+ */
+void note_on_2(uint8_t note) {
+  // Set note number
+  note_number_channel_2 = note;
+
+  // Write note to DAC
+  notes_write();
+
+  // Start trig 2
+  digitalWrite(PIN_TRIG_2, HIGH);
+  trig_2_timer = millis();
+
+  // Start gate 2
+  gate_2_value = true;
+  gate_2_write();
 }
 
 /**
@@ -637,7 +731,7 @@ void button_handle(void) {
         button_clk_increment = true;
       }
     }
-    
+
     // Write to EEPROM
     EEPROM.write(EEPROM_CLK_DIVIDER_ADR, (clock_divider >> 8) & 0xFF);
     EEPROM.write(EEPROM_CLK_DIVIDER_ADR + 1, clock_divider & 0xFF);
