@@ -141,7 +141,7 @@ uint64_t button_start_timer;
 boolean button_state;
 boolean button_long_triggered;
 boolean button_short_press, button_long_press;
-boolean button_clk_increment;
+boolean button_mode_increment, button_clk_increment;
 
 // Initialize Adafruit_NeoPixel library
 Adafruit_NeoPixel leds = Adafruit_NeoPixel(2, PIN_WS_LED, NEO_GRB + NEO_KHZ800);
@@ -618,24 +618,26 @@ void led_handler(boolean from_clock) {
 void button_handle(void) {
   // Short press
   if (button_short_press) {
-    // Increment or decrement clock divider
-    if (button_clk_increment)
-      clock_divider *= 2;
-    else
-      clock_divider /= 2;
-
-    // > MAX -> change direction
-    if (clock_divider > CLK_DIVIDER_MAX) {
-      clock_divider = CLK_DIVIDER_MAX / 2;
-      button_clk_increment = false;
+    // Increment clock divider
+    if (button_clk_increment) {
+      if (clock_divider < CLK_DIVIDER_MAX)
+        clock_divider *= 2;
+      else {
+        clock_divider = CLK_DIVIDER_MAX / 2;
+        button_clk_increment = false;
+      }
     }
 
-    // < MIN -> change direction
-    if (clock_divider < CLK_DIVIDER_MIN) {
-      clock_divider = CLK_DIVIDER_MIN * 2;
-      button_clk_increment = true;
+    // Decrement clock divider
+    else {
+      if (clock_divider > CLK_DIVIDER_MIN)
+        clock_divider /= 2;
+      else {
+        clock_divider = CLK_DIVIDER_MIN * 2;
+        button_clk_increment = true;
+      }
     }
-
+    
     // Write to EEPROM
     EEPROM.write(EEPROM_CLK_DIVIDER_ADR, (clock_divider >> 8) & 0xFF);
     EEPROM.write(EEPROM_CLK_DIVIDER_ADR + 1, clock_divider & 0xFF);
@@ -646,13 +648,25 @@ void button_handle(void) {
 
   // Long press
   if (button_long_press) {
-    // Mode < MAX -> Increment by 1
-    if (mode < MODE_MAX)
-      mode++;
+    // Increment mode
+    if (button_mode_increment) {
+      if (mode < MODE_MAX)
+        mode++;
+      else {
+        mode = MODE_MAX - 1;
+        button_mode_increment = false;
+      }
+    }
 
-    // Mode >= MAX -> Set to 0
-    else
-      mode = 0;
+    // Decrement mode
+    else {
+      if (mode > 0)
+        mode--;
+      else {
+        mode = 1;
+        button_mode_increment = true;
+      }
+    }
 
     // Write to EEPROM
     EEPROM.write(EEPROM_MODE_ADR, mode);
